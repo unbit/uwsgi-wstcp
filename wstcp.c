@@ -24,33 +24,38 @@ int uwsgi_wstcp(struct wsgi_request *wsgi_req) {
 
 	// wait for connection
 	int ret = uwsgi.wait_write_hook(fd, 30);
-	if (ret <= 0) return -1;
+	if (ret <= 0) {
+		close(fd);
+		return -1;
+	}
 
 	// ok we are connected, enter the main loop
 	for(;;) {
 		int ready_fd = -1;
 		// wait for both websockets and tcp
 		int ret = uwsgi.wait_read2_hook(wsgi_req->fd, fd, 30, &ready_fd);
-		if (ret <= 0) return -1;
+		if (ret <= 0) break;
 		// websocket message
 		if (ready_fd == wsgi_req->fd) {
 			// read websocket message
 			struct uwsgi_buffer *ub = uwsgi_websocket_recv_nb(wsgi_req);
-			if (!ub) return -1;
+			if (!ub) break;
 			// send to tcp
-			if (uwsgi_write_true_nb(fd, ub->buf, ub->pos, 30)) return -1;
+			if (uwsgi_write_true_nb(fd, ub->buf, ub->pos, 30)) break;
 		}
 		// packet from tcp
 		else if (ready_fd == fd) {
 			char buf[8192];
 			// read from the tcp socket
 			ssize_t rlen = uwsgi_read_true_nb(fd, buf, 8192, 30);
-			if (rlen <= 0) return -1;
+			if (rlen <= 0) break;
 			// send to the websocket
-			if (uwsgi_websocket_send_binary(wsgi_req, buf, rlen)) return -1;
+			if (uwsgi_websocket_send_binary(wsgi_req, buf, rlen)) break;
 		}
 	}
 
+	// end of the session
+	close(fd);
 	return UWSGI_OK;
 }
 
