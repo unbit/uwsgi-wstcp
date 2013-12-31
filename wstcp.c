@@ -6,17 +6,8 @@ extern struct uwsgi_server uwsgi;
 int uwsgi_wstcp(struct wsgi_request *wsgi_req) {
 	if (uwsgi_parse_vars(wsgi_req)) return -1;
 
-	uint16_t ws_key_len = 0;
-	uint16_t ws_origin_len = 0;
-
-	char *ws_key = uwsgi_get_var(wsgi_req, "HTTP_SEC_WEBSOCKET_KEY", 22, &ws_key_len);
-	if (!ws_key) return -1;
-
-	char *ws_origin = uwsgi_get_var(wsgi_req, "HTTP_ORIGIN", 11, &ws_origin_len);
-	if (!ws_origin) return -1;
-
 	// handshake the websocket connection
-	if (uwsgi_websocket_handshake(wsgi_req, ws_key, ws_key_len, ws_origin, ws_origin_len)) return -1;
+	if (uwsgi_websocket_handshake(wsgi_req, NULL, 0, NULL, 0, NULL, 0)) return -1;
 
 	// async connect to the tcp server
 	int fd = uwsgi_connect("127.0.0.1:9090", 0, 1);
